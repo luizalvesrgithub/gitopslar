@@ -1,0 +1,75 @@
+name: CD Gitops 
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * *' # every day at midnight UTC
+  repository_dispatch:
+    types: [deploy]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Build and push Dockerhub image
+        uses: docker/build-push-action@v2
+        with:
+          username: ${ secrets.DOCKER_USERNAME }
+          password: ${ secrets.DOCKER_PASSWORD }
+          repository: ${ secrets.DOCKER_USERNAME }/gitopslar 
+          context: .
+          push: true
+          tags: ${{ github.sha }}, latest
+        run: |
+          docker build -t my-app .
+          docker tag my-app:latest my-docker-repo/my-app:latest
+          echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+          docker push my-docker-repo/my-app:latest 
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run tests
+        run: npm test
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build the project
+        run: npm run build
+
+      - name: Deploy to production
+        run: npm run deploy
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_ENV: production
+          CI: false
+      - name: Notify deployment success
+        run: echo "Deployment to production was successful!"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_ENV: production
+          CI: false     
