@@ -43,7 +43,15 @@ jobs:
         run: npm install
 
       - name: Run tests
-        run: npm test
+        run: npm tests  
+      - name: Build the project
+        run: npm run build
+      - name: Notify build success
+        run: echo "Build was successful!"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_ENV: production
+          CI: false
   deploy:
     runs-on: ubuntu-latest
     steps:
